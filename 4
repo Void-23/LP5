@@ -1,0 +1,43 @@
+import time
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+from sklearn.svm import SVC
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from multiprocessing import Process, Queue
+# Load dataset
+data = load_iris()
+X_train, X_test, y_train, y_test = train_test_split(data.data, data.target, test_size=0.3, random_state=42)
+# Define training function for parallel execution
+def train_model(model_name, model, X_train, X_test, y_train, y_test, q):
+model.fit(X_train, y_train)
+y_pred = model.predict(X_test)
+acc = accuracy_score(y_test, y_pred)
+q.put((model_name, acc))
+# List of models to train
+models = {
+"SVM": SVC(),
+"Random Forest": RandomForestClassifier(),
+"KNN": KNeighborsClassifier()
+}
+# Queue to collect results
+q = Queue()
+# Time the parallel training
+start = time.time()
+# Create and start processes
+processes = []
+for name, model in models.items():
+p = Process(target=train_model, args=(name, model, X_train, X_test, y_train, y_test, q))
+processes.append(p)
+p.start()
+# Wait for all processes to finish
+for p in processes:
+p.join()
+# Get results
+print("\n Accuracy of models (using multiprocessing):")
+while not q.empty():
+model_name, acc = q.get()
+print(f"{model_name}: {acc:.2f}")
+end = time.time()
+print(f"\n Total Time (Parallel): {end - start:.2f} seconds")
